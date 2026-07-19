@@ -1,0 +1,52 @@
+services:
+
+  load_balancer:
+    build:
+      context: ./load_balancer
+    container_name: load_balancer
+    ports:
+      - "5000:5000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - server1
+      - server2
+      - server3
+    networks:
+      - loadbalancer
+
+  server1:
+    image: loadbalancer-server
+    build:
+      context: ./server
+    container_name: Server1
+    environment:
+      SERVER_ID: 1
+    expose:
+      - "5000"
+    networks:
+      - loadbalancer
+
+  server2:
+    image: loadbalancer-server
+    container_name: Server2
+    environment:
+      SERVER_ID: 2
+    expose:
+      - "5000"
+    networks:
+      - loadbalancer
+
+  server3:
+    image: loadbalancer-server
+    container_name: Server3
+    environment:
+      SERVER_ID: 3
+    expose:
+      - "5000"
+    networks:
+      - loadbalancer
+
+networks:
+  loadbalancer:
+    driver: bridge
