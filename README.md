@@ -2,10 +2,14 @@
 
 ## Group Members
 
-- Alex Ngigi - 162437
-- Joseph Manene - 169648
+| Name | Registration Number |
+|------|----------------------|
+| Alex Ngigi | 162437 |
+| Joseph Manene | 169648 |
+
 ---
-## Overview
+
+# Overview
 
 This project implements a custom software load balancer using Docker containers and Consistent Hashing. The load balancer distributes incoming client requests among multiple backend server containers while maintaining balanced request allocation. The system also includes automatic failure detection and recovery through a heartbeat mechanism.
 
@@ -13,78 +17,93 @@ This project implements a custom software load balancer using Docker containers 
 
 # Project Structure
 
-```
+```text
 load-balancer/
 │
-├── app.py
-├── consistent_hash.py
-├── docker_manager.py
-├── analysis.py
-├── analysis_A2.py
-├── docker-compose.yml
-├── Dockerfile
-├── Makefile
-├── requirements.txt
+├── load_balancer/                     
+│   ├── app.py                         
+│   ├── consistent_hash.py             
+│   ├── docker_manager.py              
+│   ├── heartbeat.py                   
+│   ├── Dockerfile                     
+│   ├── requirements.txt               
+│   ├── test_docker.py                 
+│   ├── .venv/
+│   └── __pycache__/
 │
-└── server/
-      ├── app.py
-      └── Dockerfile
+├── server/                            
+│   ├── app.py                         
+│   ├── Dockerfile                     
+│   ├── requirements.txt               
+│   └── .venv/
+│
+├── analysis.py                        # A-1 Performance analysis
+├── analysis_A2.py                     # A-2 Scalability analysis
+├── docker-compose.yml                 # Multi-container deployment
+├── Makefile                           # Automation commands
+├── README.md                          # Project documentation
+├── .gitignore                         # Git ignore rules
+├── A1_bar_chart.png                   # Load distribution graph
+└── A2_line_chart.png                  # Scalability graph
 ```
 
 ---
 
 # Design Choices
 
-### 1. Consistent Hashing
+## 1. Consistent Hashing
 
 The load balancer uses a consistent hashing ring to determine which backend server should receive a request.
 
-Advantages:
+### Advantages
 
-- minimal remapping when servers are added or removed
-- balanced request allocation
-- scalable architecture
+- Minimal remapping when servers are added or removed
+- Balanced request allocation
+- Scalable architecture
+- Reduced disruption during scaling
 
 ---
 
-### 2. Docker Containers
+## 2. Docker Containers
 
 Each backend server runs as an independent Docker container.
 
-Benefits:
+### Benefits
 
-- lightweight
-- isolated
-- easy deployment
-- easy replacement after failure
-
----
-
-### 3. Heartbeat Monitoring
-
-A background thread continuously checks running server containers every 5 seconds.
-
-If a server disappears:
-
-1. remove it from the hash ring
-2. remove it from the replica list
-3. launch a replacement server
-4. add the replacement back into the hash ring
-
-This provides automatic fault recovery.
+- Lightweight virtualization
+- Isolated execution environment
+- Easy deployment
+- Easy replacement after failure
+- Simple scalability
 
 ---
 
-### 4. REST API
+## 3. Heartbeat Monitoring
 
-The load balancer exposes the following endpoints.
+A background heartbeat thread continuously monitors all backend servers every five seconds.
+
+If a server fails, the load balancer automatically:
+
+1. Detects the missing container.
+2. Removes the failed server from the replica list.
+3. Removes the server from the consistent hash ring.
+4. Launches a replacement Docker container.
+5. Adds the new server back into the hash ring.
+
+This provides automatic fault recovery without interrupting client requests.
+
+---
+
+## 4. REST API
+
+The load balancer exposes the following REST endpoints.
 
 | Endpoint | Method | Description |
 |-----------|----------|------------------------------|
-| /rep | GET | View replicas |
-| /add | POST | Add new replicas |
-| /rm | DELETE | Remove replicas |
-| /home | GET | Forward client request |
+| `/rep` | GET | Returns the current replicas |
+| `/add` | POST | Adds new replicas |
+| `/rm` | DELETE | Removes replicas |
+| `/home` | GET | Routes client requests |
 
 ---
 
@@ -92,65 +111,65 @@ The load balancer exposes the following endpoints.
 
 The implementation assumes:
 
-- Docker Engine is installed
-- Docker Compose is installed
-- Python 3.11+
-- All containers are connected to the same Docker network
-- Backend servers expose port 5000
-- Every backend server responds to `/home`
-- Every backend server responds to `/heartbeat`
+- Docker Engine is installed.
+- Docker Compose is installed.
+- Python 3.11 or later is available.
+- All containers belong to the same Docker network.
+- Backend servers expose port 5000.
+- Every backend server implements the `/home` endpoint.
+- Every backend server responds to `/heartbeat`.
 
 ---
 
 # Testing
 
-The following tests were performed.
+The following tests were successfully performed.
 
-### Replica Endpoint
+## Replica Endpoint
 
-```
+```http
 GET /rep
 ```
 
-Returns the current number of replicas.
+Returns the current number of active replicas.
 
 ---
 
-### Add Endpoint
+## Add Endpoint
 
-```
+```http
 POST /add
 ```
 
-Successfully launches additional Docker containers.
+Successfully launches new Docker server containers and updates the consistent hash ring.
 
 ---
 
-### Remove Endpoint
+## Remove Endpoint
 
-```
+```http
 DELETE /rm
 ```
 
-Successfully removes containers and updates the hash ring.
+Successfully removes selected server containers while updating the replica list and hash ring.
 
 ---
 
-### Load Balancing
+## Load Balancing
 
-```
+```http
 GET /home
 ```
 
-Routes incoming requests to backend servers.
+Routes client requests to backend servers using consistent hashing.
 
 ---
 
-### Failure Recovery
+## Failure Recovery
 
-When a backend container is manually removed using
+When a backend container is manually removed
 
-```
+```bash
 docker rm -f Server2
 ```
 
@@ -162,15 +181,13 @@ the heartbeat thread automatically detects the failure and launches a replacemen
 
 ## A-1 Load Distribution Across Three Servers
 
-10000 asynchronous requests were sent to the load balancer using three backend servers.
+A total of **10,000 asynchronous requests** were sent to the load balancer using **three backend servers**.
 
 ### Result
 
-Insert the generated bar chart here.
-
 ![A1](A1_bar_chart.png)
 
-Observed request distribution
+### Observed Request Distribution
 
 | Server | Requests |
 |----------|----------|
@@ -180,28 +197,28 @@ Observed request distribution
 
 ### Observation
 
-The requests were not evenly distributed across the three servers.
+The requests were **not evenly distributed** across the three backend servers.
 
-One server handled significantly more requests than the others. This indicates that the current hash function does not provide a perfectly uniform distribution.
+Although all 10,000 requests were successfully processed, Server 1 handled a significantly larger percentage of the workload than Servers 2 and 3.
 
-Although all requests were successfully processed, the workload imbalance suggests that the hash function can still be improved.
+This indicates that while the consistent hashing implementation correctly routes requests, the current hash function produces an uneven distribution of virtual nodes on the hash ring. Consequently, one server receives a much larger share of requests.
+
+A better hash function or the use of additional virtual nodes would improve load balancing while still preserving the benefits of consistent hashing.
 
 ---
 
 ## A-2 Scalability Analysis
 
-The number of replicas was increased from 2 to 6.
+The number of backend replicas was increased from **2 to 6**.
 
-For each configuration, 10000 requests were generated.
+For each configuration, **10,000 client requests** were generated.
 
 ### Result
 
-Insert the generated line chart here.
-
 ![A2](A2_line_chart.png)
 
-| Replicas | Average Requests per Server |
-|------------|----------------------------|
+| Number of Replicas | Average Requests per Server |
+|--------------------|-----------------------------|
 | 2 | 5000 |
 | 3 | 3333 |
 | 4 | 2500 |
@@ -210,11 +227,11 @@ Insert the generated line chart here.
 
 ### Observation
 
-The average load per server decreases almost linearly as additional replicas are introduced.
+The average number of requests handled by each server decreases almost linearly as additional replicas are introduced.
 
-This demonstrates that the system scales well because the workload is shared among more backend servers.
+This demonstrates that the system scales effectively because the workload is shared among a larger number of backend servers.
 
-Increasing the number of replicas reduces the processing burden on each individual server.
+Adding more replicas reduces the processing burden on individual servers, resulting in improved scalability and increased capacity to handle client requests.
 
 ---
 
@@ -222,61 +239,62 @@ Increasing the number of replicas reduces the processing burden on each individu
 
 The heartbeat mechanism was tested by manually terminating one backend server.
 
-Example
+Example:
 
-```
+```bash
 docker rm -f Server2
 ```
 
-The load balancer detected the missing server within a few seconds.
+The heartbeat monitor detected the failed server within a few seconds.
 
-It automatically
+It then automatically:
 
-- removed the failed server
-- updated the consistent hash ring
-- launched a replacement container
-- continued serving requests
+- Removed the failed server from the replica list.
+- Updated the consistent hash ring.
+- Created a replacement Docker container.
+- Added the replacement server back into the hash ring.
+- Continued serving incoming client requests.
 
 ### Observation
 
 The recovery process required no manual intervention.
 
-Client requests continued successfully after the replacement server joined the cluster.
-
-This demonstrates that the implementation is fault tolerant.
+Client requests continued successfully after the replacement server joined the cluster, demonstrating that the implementation provides automatic fault tolerance and high availability.
 
 ---
 
 ## A-4 Modified Hash Functions
 
-The hash functions H(i) and Φ(i,j) were modified by changing the hashing constants.
+The hash functions **H(i)** and **Φ(i,j)** were modified by changing the hashing constants used in the consistent hashing implementation.
 
-The experiments in A-1 and A-2 were repeated.
+The experiments in **A-1** and **A-2** were then repeated.
 
 ### Observation
 
-Changing the hash function altered how requests were distributed across the servers.
+Changing the hash functions altered the distribution of requests across backend servers.
 
-Some hash functions produced a more balanced distribution while others increased the imbalance.
+Some hash functions produced a more balanced distribution while others resulted in greater imbalance.
 
 However, the scalability trend remained unchanged.
 
-Increasing the number of replicas continued to reduce the average load handled by each server.
+As additional replicas were introduced, the average load handled by each server continued to decrease almost linearly.
 
-This confirms that system scalability depends mainly on the number of replicas, while the choice of hash function primarily affects load distribution quality.
+This demonstrates that overall system scalability depends primarily on the number of available replicas, while the quality of the hash function determines how evenly the requests are distributed among those replicas.
 
 ---
 
 # Conclusion
 
-The project successfully implements
+The project successfully demonstrates the implementation of a Docker-based software load balancer featuring:
 
 - Consistent Hashing
 - Dynamic server addition
 - Dynamic server removal
-- Automatic failure recovery
+- Automatic heartbeat monitoring
+- Automatic server failure recovery
 - Docker container orchestration
-- Request routing
+- REST-based request routing
+- Performance evaluation
 - Scalability with increasing replicas
 
-The heartbeat mechanism ensures high availability while the consistent hashing strategy minimizes disruption when servers join or leave the system.
+The heartbeat mechanism ensures high availability by automatically replacing failed servers, while consistent hashing minimizes disruption whenever servers join or leave the cluster. Experimental evaluation confirms that the system scales effectively as the number of backend replicas increases, although the choice of hash function has a significant impact on the quality of load distribution.
