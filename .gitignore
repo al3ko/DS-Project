@@ -14,8 +14,6 @@ venv/
 # Logs
 *.log
 
-# Images generated during analysis
-*.png
 
 # Docker
 *.pid
